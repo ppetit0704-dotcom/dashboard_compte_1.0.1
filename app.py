@@ -25,6 +25,7 @@ st.set_page_config(
     layout="wide",
     page_title="Dashboard comptable M57"
 )
+Memo_COLS_LIQUIDE = None
 
 
 # =====================================================
@@ -83,7 +84,7 @@ with st.sidebar:
         if section != "Tous":
             df_section = df_section[df_section["Section"] == section]
 
-        # --- Service (nouveau filtre)
+        # --- Service
         if "Service" in df_section.columns:
             services = sorted(
                 df_section["Service"]
@@ -119,6 +120,24 @@ with st.sidebar:
             .unique()
         )
         compte = st.selectbox("Compte", ["Tous"] + comptes)
+      
+        # --- Tiers
+        if "Tiers" in df_sens.columns:
+            tiers_list = sorted(
+                df_sens["Tiers"]
+                .dropna()
+                .astype(str)
+                .unique()
+            )
+        
+            tiers = st.selectbox("Tiers", ["Tous"] + tiers_list)
+        
+            df_tiers = df_sens.copy()
+            if tiers != "Tous":
+                df_tiers = df_tiers[df_tiers["Tiers"] == tiers]
+        else:
+            df_tiers = df_sens.copy()
+            tiers = "Tous"
 
 
 
@@ -129,6 +148,7 @@ if file:
 
     df = load_csv(file)
     df_filtre = df.copy()
+    df_saved=df.copy()
 
     # -----------------------------
     # Application des filtres
@@ -138,6 +158,7 @@ if file:
     
     if section and section != "Tous":
         df_filtre = df_filtre[df_filtre["Section"] == section]
+        
     
     # Nouveau filtre Service
     if service and service != "Tous":
@@ -148,6 +169,9 @@ if file:
     
     if compte and compte != "Tous":
         df_filtre = df_filtre[df_filtre["Compte"] == compte]
+
+    if tiers and tiers != "Tous":
+        df_filtre = df_filtre[df_filtre["Tiers"] == tiers]
 
 
     # -----------------------------
@@ -203,15 +227,15 @@ if file:
     st.subheader("📋 Résultats")
 
     badge(
-        f"{budget} - {section} - {sens} - {compte}",
-        f"{total_liquide:,.2f} €"
+    f"{budget} - {section} - {sens} - {compte} - {tiers}",
+    f"{total_liquide:,.2f} €"
     )
    # =====================================================
     # BADGES PAR TIERS (TRIÉS ET MULTI-LIGNES)
     # =====================================================
     if "Tiers" in df_filtre.columns and "Liquidé" in df_filtre.columns:
     
-        st.markdown("### 💼 Totaux par tiers (Top 20)")
+        st.markdown("### 💼 Totaux par tiers (Top 10)")
     
         # Somme des liquidés par tiers, tri décroissant, top 20 (ou tous si tu veux)
         tiers_totaux = (
@@ -219,7 +243,7 @@ if file:
             .groupby("Tiers")["Liquidé"]
             .sum()
             .sort_values(ascending=False)
-            .head(20)  # change ou supprime pour tous
+            .head(10)  # change ou supprime pour tous
         )
     
         # Transformation en liste pour itération
@@ -243,10 +267,13 @@ if file:
     # =====================================================
     # TABLE
     # =====================================================
+    st.divider()
     st.dataframe(
         table_total,
         use_container_width=True
     )
+   
+    
 
 else:
     st.info("⬅️ Veuillez charger un fichier CSV depuis le panneau latéral.")
