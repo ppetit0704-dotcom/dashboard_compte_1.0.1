@@ -2,7 +2,7 @@
 """
 Dashboard comptable M57
 @author : P. PETIT
-Version : 1.09.00
+Version : 1.09.01
 """
 
 import sys
@@ -17,7 +17,6 @@ from ui.cards import badge, badgeGreen, badgeOrange
 # =====================================================
 # FONCTIONS FORMATAGE
 # =====================================================
-
 def format_euro(val):
     return f"{val:,.2f}".replace(",", " ").replace(".", ",") + " €"
 
@@ -29,7 +28,6 @@ def format_entier(val):
 # CONFIGURATION
 # =====================================================
 ROOT_DIR = Path(__file__).resolve().parent
-
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
@@ -67,10 +65,9 @@ if "tiers_selected" not in st.session_state:
 # HEADER
 # =====================================================
 logo_path = ROOT_DIR / "assets" / "logo.png"
-
 st.image(str(logo_path), width=480)
 st.title("📊 Tableau de bord compte – M57")
-st.caption("Version 1.09.00 | Tableau de bord compte [M57] | P. PETIT")
+st.caption("Version 1.09.01 | Tableau de bord compte [M57] | P. PETIT")
 
 
 # =====================================================
@@ -88,54 +85,55 @@ with st.sidebar:
 
         df_temp = load_csv(file)
 
+        # --- Budget
         budgets = sorted(df_temp["Libellé_budget"].dropna().astype(str).unique())
         budget = st.selectbox("Budget", ["Tous"] + budgets)
 
-        df_budget = df_temp if budget == "Tous" else \
-            df_temp[df_temp["Libellé_budget"] == budget]
+        df_budget = df_temp if budget == "Tous" else df_temp[df_temp["Libellé_budget"] == budget]
 
+        # --- Section
         sections = sorted(df_budget["Section"].dropna().astype(str).unique())
         section = st.selectbox("Section", ["Tous"] + sections)
 
-        df_section = df_budget if section == "Tous" else \
-            df_budget[df_budget["Section"] == section]
+        df_section = df_budget if section == "Tous" else df_budget[df_budget["Section"] == section]
 
+        # --- Service
         if "Service" in df_section.columns:
             services = sorted(df_section["Service"].dropna().astype(str).unique())
             service = st.selectbox("Service", ["Tous"] + services)
-
-            df_service = df_section if service == "Tous" else \
-                df_section[df_section["Service"] == service]
+            df_service = df_section if service == "Tous" else df_section[df_section["Service"] == service]
         else:
             df_service = df_section
 
+        # --- Sens
         sens_list = sorted(df_service["Sens"].dropna().astype(str).unique())
         sens = st.selectbox("Sens", ["Tous"] + sens_list)
+        df_sens = df_service if sens == "Tous" else df_service[df_service["Sens"] == sens]
 
-        df_sens = df_service if sens == "Tous" else \
-            df_service[df_service["Sens"] == sens]
-
+        # --- Compte
         comptes = sorted(df_sens["Compte"].dropna().astype(str).unique())
         compte = st.selectbox("Compte", ["Tous"] + comptes)
+        df_compte = df_sens if compte == "Tous" else df_sens[df_sens["Compte"] == compte]
 
-        df_compte = df_sens if compte == "Tous" else \
-            df_sens[df_sens["Compte"] == compte]
-
+        # --- Tiers (réactif)
         if "Tiers" in df_compte.columns:
-
             tiers_list = sorted(df_compte["Tiers"].dropna().astype(str).unique())
             options_tiers = ["Tous"] + tiers_list
 
             if st.session_state.tiers_selected not in options_tiers:
                 st.session_state.tiers_selected = "Tous"
 
+            # Fonction pour mettre à jour le tiers sélectionné
+            def update_tiers():
+                st.session_state.tiers_selected = st.session_state["tiers_box"]
+
             tiers = st.selectbox(
                 "Tiers",
                 options_tiers,
-                index=options_tiers.index(st.session_state.tiers_selected)
+                index=options_tiers.index(st.session_state.tiers_selected),
+                key="tiers_box",
+                on_change=update_tiers
             )
-
-            st.session_state.tiers_selected = tiers
 
 
 # =====================================================
@@ -164,15 +162,9 @@ if file:
 
     # ---------- Conversion numérique sécurisée
     if "Liquidé" in df_filtre.columns:
-        df_filtre["Liquidé"] = pd.to_numeric(
-            df_filtre["Liquidé"], errors="coerce"
-        ).fillna(0)
-
+        df_filtre["Liquidé"] = pd.to_numeric(df_filtre["Liquidé"], errors="coerce").fillna(0)
     if "Exercice" in df_filtre.columns:
-        df_filtre["Exercice"] = pd.to_numeric(
-            df_filtre["Exercice"], errors="coerce"
-        ).fillna(0)
-
+        df_filtre["Exercice"] = pd.to_numeric(df_filtre["Exercice"], errors="coerce").fillna(0)
 
     # =====================================================
     # PREPARATION TABLE
@@ -183,43 +175,29 @@ if file:
         "Tiers", "Liquidé", "N_Bordereau", "N_Pièce"
     ]
 
-    colonnes_existantes = [
-        c for c in colonnes_affichage if c in df_filtre.columns
-    ]
-
+    colonnes_existantes = [c for c in colonnes_affichage if c in df_filtre.columns]
     table = df_filtre[colonnes_existantes].copy()
-
     total_liquide = table["Liquidé"].sum() if "Liquidé" in table else 0
-
 
     # ---------- FORMATAGE AFFICHAGE
     if "Liquidé" in table.columns:
         table["Liquidé"] = table["Liquidé"].apply(format_euro)
-
     if "Exercice" in table.columns:
         table["Exercice"] = table["Exercice"].apply(format_entier)
 
-
     # ---------- Ligne TOTAL
     table_total = table.copy()
-
-    if "Liquidé" in df_filtre.columns:
+    if "Liquidé" in table.columns:
         total_row = {col: "" for col in table_total.columns}
         total_row[table_total.columns[0]] = "TOTAL"
         total_row["Liquidé"] = format_euro(total_liquide)
         table_total.loc[len(table_total)] = total_row
 
-
     # =====================================================
     # BADGE GLOBAL
     # =====================================================
     st.subheader("📋 Résultats")
-
-    badgeOrange(
-        f"{budget} - {section} - {sens} - {compte} - {tiers}",
-        format_euro(total_liquide)
-    )
-
+    badgeOrange(f"{budget} - {section} - {sens} - {compte} - {tiers}", format_euro(total_liquide))
 
     # =====================================================
     # BADGES PAR TIERS
@@ -227,10 +205,8 @@ if file:
     if "Tiers" in df_filtre.columns and "Liquidé" in df_filtre.columns:
 
         st.markdown("### 💼 Totaux par tiers (Top 10)")
-
         tiers_totaux = (
-            df_filtre
-            .groupby("Tiers")["Liquidé"]
+            df_filtre.groupby("Tiers")["Liquidé"]
             .sum()
             .sort_values(ascending=False)
             .head(10)
@@ -252,8 +228,6 @@ if file:
                         key=f"tiers_{tiers_nom}"
                     ):
                         st.session_state.tiers_selected = tiers_nom
-                        st.rerun()
-
 
     # =====================================================
     # TABLE
