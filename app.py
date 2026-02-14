@@ -8,9 +8,21 @@ Version : 1.09.00
 import sys
 from pathlib import Path
 import streamlit as st
+import pandas as pd
 
 from core.loader import load_csv
 from ui.cards import badge, badgeGreen, badgeOrange
+
+
+# =====================================================
+# FONCTIONS FORMATAGE
+# =====================================================
+
+def format_euro(val):
+    return f"{val:,.2f}".replace(",", " ").replace(".", ",") + " €"
+
+def format_entier(val):
+    return f"{int(val):,}".replace(",", " ")
 
 
 # =====================================================
@@ -36,7 +48,6 @@ div.stButton > button {
     padding: 0.6em 0.8em;
     font-weight: 600;
 }
-
 div.stButton > button:hover {
     background-color: #388E3C;
     color: white;
@@ -45,9 +56,9 @@ div.stButton > button:hover {
 """, unsafe_allow_html=True)
 
 
-# -----------------------------------------------------
+# =====================================================
 # SESSION STATE
-# -----------------------------------------------------
+# =====================================================
 if "tiers_selected" not in st.session_state:
     st.session_state.tiers_selected = "Tous"
 
@@ -69,10 +80,7 @@ with st.sidebar:
 
     st.header("⚙️ Paramètres")
 
-    file = st.file_uploader(
-        "📁 Charger le fichier CSV",
-        type="csv"
-    )
+    file = st.file_uploader("📁 Charger le fichier CSV", type="csv")
 
     budget = section = service = sens = compte = tiers = "Tous"
 
@@ -80,21 +88,18 @@ with st.sidebar:
 
         df_temp = load_csv(file)
 
-        # ---------- Budget
         budgets = sorted(df_temp["Libellé_budget"].dropna().astype(str).unique())
         budget = st.selectbox("Budget", ["Tous"] + budgets)
 
         df_budget = df_temp if budget == "Tous" else \
             df_temp[df_temp["Libellé_budget"] == budget]
 
-        # ---------- Section
         sections = sorted(df_budget["Section"].dropna().astype(str).unique())
         section = st.selectbox("Section", ["Tous"] + sections)
 
         df_section = df_budget if section == "Tous" else \
             df_budget[df_budget["Section"] == section]
 
-        # ---------- Service
         if "Service" in df_section.columns:
             services = sorted(df_section["Service"].dropna().astype(str).unique())
             service = st.selectbox("Service", ["Tous"] + services)
@@ -104,27 +109,21 @@ with st.sidebar:
         else:
             df_service = df_section
 
-        # ---------- Sens
         sens_list = sorted(df_service["Sens"].dropna().astype(str).unique())
         sens = st.selectbox("Sens", ["Tous"] + sens_list)
 
         df_sens = df_service if sens == "Tous" else \
             df_service[df_service["Sens"] == sens]
 
-        # ---------- Compte
         comptes = sorted(df_sens["Compte"].dropna().astype(str).unique())
         compte = st.selectbox("Compte", ["Tous"] + comptes)
 
         df_compte = df_sens if compte == "Tous" else \
             df_sens[df_sens["Compte"] == compte]
 
-        # ---------- Tiers (sync session_state)
         if "Tiers" in df_compte.columns:
 
-            tiers_list = sorted(
-                df_compte["Tiers"].dropna().astype(str).unique()
-            )
-
+            tiers_list = sorted(df_compte["Tiers"].dropna().astype(str).unique())
             options_tiers = ["Tous"] + tiers_list
 
             if st.session_state.tiers_selected not in options_tiers:
@@ -145,28 +144,35 @@ with st.sidebar:
 if file:
 
     df = load_csv(file)
-
-    # ---------- Application filtres
     df_filtre = df.copy()
 
+    # ---------- Application filtres
     if budget != "Tous":
         df_filtre = df_filtre[df_filtre["Libellé_budget"] == budget]
-
     if section != "Tous":
         df_filtre = df_filtre[df_filtre["Section"] == section]
-
     if service != "Tous":
         df_filtre = df_filtre[df_filtre["Service"] == service]
-
     if sens != "Tous":
         df_filtre = df_filtre[df_filtre["Sens"] == sens]
-
     if compte != "Tous":
         df_filtre = df_filtre[df_filtre["Compte"] == compte]
 
     tiers = st.session_state.tiers_selected
     if tiers != "Tous":
         df_filtre = df_filtre[df_filtre["Tiers"] == tiers]
+
+    # ---------- Conversion numérique sécurisée
+    if "Liquidé" in df_filtre.columns:
+        df_filtre["Liquidé"] = pd.to_numeric(
+            df_filtre["Liquidé"], errors="coerce"
+        ).fillna(0)
+
+    if "Exercice" in df_filtre.columns:
+        df_filtre["Exercice"] = pd.to_numeric(
+            df_filtre["Exercice"], errors="coerce"
+        ).fillna(0)
+
 
     # =====================================================
     # PREPARATION TABLE
@@ -185,14 +191,24 @@ if file:
 
     total_liquide = table["Liquidé"].sum() if "Liquidé" in table else 0
 
+
+    # ---------- FORMATAGE AFFICHAGE
+    if "Liquidé" in table.columns:
+        table["Liquidé"] = table["Liquidé"].apply(format_euro)
+
+    if "Exercice" in table.columns:
+        table["Exercice"] = table["Exercice"].apply(format_entier)
+
+
     # ---------- Ligne TOTAL
     table_total = table.copy()
 
-    if "Liquidé" in table.columns:
-        total_row = {col: "" for col in table.columns}
-        total_row[table.columns[0]] = "TOTAL"
-        total_row["Liquidé"] = f"{total_liquide:,.2f} €"
+    if "Liquidé" in df_filtre.columns:
+        total_row = {col: "" for col in table_total.columns}
+        total_row[table_total.columns[0]] = "TOTAL"
+        total_row["Liquidé"] = format_euro(total_liquide)
         table_total.loc[len(table_total)] = total_row
+
 
     # =====================================================
     # BADGE GLOBAL
@@ -201,11 +217,12 @@ if file:
 
     badgeOrange(
         f"{budget} - {section} - {sens} - {compte} - {tiers}",
-        f"{total_liquide:,.2f} €"
+        format_euro(total_liquide)
     )
 
+
     # =====================================================
-    # BADGES PAR TIERS (CLIQUABLES)
+    # BADGES PAR TIERS
     # =====================================================
     if "Tiers" in df_filtre.columns and "Liquidé" in df_filtre.columns:
 
@@ -230,12 +247,13 @@ if file:
             for col, (tiers_nom, montant) in zip(cols, batch):
                 with col:
                     if st.button(
-                        f"{tiers_nom}\n{montant:,.2f} €",
+                        f"{tiers_nom}\n{format_euro(montant)}",
                         use_container_width=True,
                         key=f"tiers_{tiers_nom}"
                     ):
                         st.session_state.tiers_selected = tiers_nom
                         st.rerun()
+
 
     # =====================================================
     # TABLE
