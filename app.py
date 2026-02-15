@@ -2,7 +2,7 @@
 """
 Dashboard comptable M57
 @author : P. PETIT
-Version : 1.09.01
+Version : 1.09.03
 """
 
 import sys
@@ -67,7 +67,7 @@ if "tiers_selected" not in st.session_state:
 logo_path = ROOT_DIR / "assets" / "logo.png"
 st.image(str(logo_path), width=480)
 st.title("📊 Tableau de bord compte – M57")
-st.caption("Version 1.09.01 | Tableau de bord compte [M57] | P. PETIT")
+st.caption("Version 1.09.03 | Tableau de bord compte [M57] | Auteur : P. PETIT")
 
 
 # =====================================================
@@ -203,31 +203,49 @@ if file:
     # BADGES PAR TIERS
     # =====================================================
     if "Tiers" in df_filtre.columns and "Liquidé" in df_filtre.columns:
-
+    
         st.markdown("### 💼 Totaux par tiers (Top 10)")
+    
+        # Sécurisation totale du numérique
+        df_filtre["Liquidé"] = pd.to_numeric(
+            df_filtre["Liquidé"], errors="coerce"
+        ).fillna(0)
+    
         tiers_totaux = (
-            df_filtre.groupby("Tiers")["Liquidé"]
+            df_filtre
+            .groupby("Tiers", as_index=False)["Liquidé"]
             .sum()
-            .sort_values(ascending=False)
+            .sort_values(by="Liquidé", ascending=False)
+            .reset_index(drop=True)
             .head(10)
         )
-
-        items = list(tiers_totaux.items())
-        batch_size = 5
-
-        for i in range(0, len(items), batch_size):
+    
+        batch_size = 10
+        nb_cols = 5
+        
+        for i in range(0, len(tiers_totaux), nb_cols):
+        
             st.divider()
-            batch = items[i:i+batch_size]
+        
+            # ✅ batch existe ici
+            batch = tiers_totaux.iloc[i:i+nb_cols]
+        
             cols = st.columns(len(batch))
-
-            for col, (tiers_nom, montant) in zip(cols, batch):
-                with col:
+        
+            for idx, (col_idx, row) in enumerate(
+                    zip(range(len(batch)), batch.itertuples())):
+        
+                with cols[col_idx]:
+        
                     if st.button(
-                        f"{tiers_nom}\n{format_euro(montant)}",
+                        f"{row.Tiers} [-\n] {format_euro(row.Liquidé)} ]",
                         use_container_width=True,
-                        key=f"tiers_{tiers_nom}"
+                        key=f"tiers_{i}_{idx}_{row.Tiers}"
                     ):
-                        st.session_state.tiers_selected = tiers_nom
+                        st.session_state.tiers_selected = row.Tiers
+
+
+
 
     # =====================================================
     # TABLE
