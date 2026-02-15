@@ -238,7 +238,7 @@ if file:
                 with cols[col_idx]:
         
                     if st.button(
-                        f"{row.Tiers} [-\n] {format_euro(row.Liquidé)} ]",
+                        f"{row.Tiers} [ {format_euro(row.Liquidé)} ]",
                         use_container_width=True,
                         key=f"tiers_{i}_{idx}_{row.Tiers}"
                     ):
@@ -255,3 +255,4 @@ if file:
 
 else:
     st.info("⬅️ Veuillez charger un fichier CSV depuis le panneau latéral.")
+
