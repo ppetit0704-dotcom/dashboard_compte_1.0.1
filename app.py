@@ -219,9 +219,16 @@ if file:
             .reset_index(drop=True)
             .head(10)
         )
-    
-        batch_size = 10
-        nb_cols = 5
+        # Affichage bouton des Tiers
+        st.markdown("""
+            <style>
+            .stButton > button {
+                white-space: pre-line;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+                batch_size = 10
+                nb_cols = 5
         
         for i in range(0, len(tiers_totaux), nb_cols):
         
@@ -238,7 +245,7 @@ if file:
                 with cols[col_idx]:
         
                     if st.button(
-                        f"{row.Tiers} [ {format_euro(row.Liquidé)} ]",
+                        f"{row.Tiers}\n{format_euro(row.Liquidé)}",
                         use_container_width=True,
                         key=f"tiers_{i}_{idx}_{row.Tiers}"
                     ):
@@ -255,4 +262,5 @@ if file:
 
 else:
     st.info("⬅️ Veuillez charger un fichier CSV depuis le panneau latéral.")
+
 
