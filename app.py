@@ -2,7 +2,7 @@
 """
 Dashboard comptable M57
 @author : P. PETIT
-Version : 1.09.03
+Version : 1.09.01
 """
 
 import sys
@@ -67,7 +67,7 @@ if "tiers_selected" not in st.session_state:
 logo_path = ROOT_DIR / "assets" / "logo.png"
 st.image(str(logo_path), width=480)
 st.title("📊 Tableau de bord compte – M57")
-st.caption("Version 1.09.03 | Tableau de bord compte [M57] | Auteur : P. PETIT")
+st.caption("Version 1.09.01 | Tableau de bord compte [M57] | P. PETIT")
 
 
 # =====================================================
@@ -219,7 +219,7 @@ if file:
             .reset_index(drop=True)
             .head(10)
         )
-        # Affichage bouton des Tiers
+        #Bouton Tiers
         st.markdown("""
             <style>
             .stButton > button {
@@ -227,8 +227,8 @@ if file:
             }
             </style>
         """, unsafe_allow_html=True)
-                batch_size = 10
-                nb_cols = 5
+        batch_size = 10
+        nb_cols = 5
         
         for i in range(0, len(tiers_totaux), nb_cols):
         
@@ -262,5 +262,3 @@ if file:
 
 else:
     st.info("⬅️ Veuillez charger un fichier CSV depuis le panneau latéral.")
-
-
